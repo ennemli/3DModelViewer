@@ -3,6 +3,7 @@ import { AnimateContext, defaultAnimateContextValue, SceneContext, useScene } fr
 import { setupScene } from "../lib/scene";
 import { SceneProps } from "../lib/types";
 import { PerspectiveCamera } from "three";
+import { VRButton } from 'three/examples/jsm/webxr/VRButton';
 interface CanvasProps {
     fallBack?: React.ReactNode;
     children?: React.ReactNode;
@@ -42,9 +43,14 @@ const Canvas = React.forwardRef<HTMLCanvasElement, CanvasProps>(function Canvas(
     const newScene = useMemo(() => setupScene(props.sceneProps), [props.sceneProps]);
     const canvasContainer = React.useRef<HTMLDivElement>(null!);
     useEffect(() => {
+        const vrButtonElement = VRButton.createButton(newScene.renderer);
+        document.body.appendChild(vrButtonElement);
+        newScene.renderer.xr.enabled = true;
+
         const current = canvasContainer.current;
         current.appendChild(newScene.renderer.domElement);
         return () => {
+            vrButtonElement.remove();
             newScene.renderer.domElement.remove();
         };
     });
@@ -61,20 +67,20 @@ const Canvas = React.forwardRef<HTMLCanvasElement, CanvasProps>(function Canvas(
 
     useEffect(() => {
 
-        function animate(delta: number) {
-            defaultAnimateContextValue.callBacks.forEach((callBack) => {
-                callBack.call(undefined, delta)
-            });
-            window.requestAnimationFrame(animate);
-            newScene.renderer.render(newScene.scene, newScene.camera);
+        function animate() {
+
+            newScene.renderer.setAnimationLoop(() => {
+                defaultAnimateContextValue.callBacks.forEach((callBack) => {
+                    callBack.call(undefined, 0.1)
+                });
+                newScene.renderer.render(newScene.scene, newScene.camera);
+
+            })
 
         }
-
-        const animateId = window.requestAnimationFrame(animate)
-
+        animate()
         return () => {
             defaultAnimateContextValue.callBacks = [];
-            window.cancelAnimationFrame(animateId);
         }
     }, [newScene.scene, newScene.camera, newScene.renderer]);
 
