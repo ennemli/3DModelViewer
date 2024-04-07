@@ -64,8 +64,9 @@ function App() {
             <SceneLight />
           </ScenePlayerContext.Provider>
         </Canvas>
+        <Player />
+
       </Suspense>
-      <Player />
       <Leva hidden={false} collapsed={false} />
     </div>
   );

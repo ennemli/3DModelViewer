@@ -11,8 +11,8 @@ import { useScenePlayer } from '../context/scenePlayer';
  * Because of the CORS, I can't access to data on the firebase server from local fetch, so I used local proxy.
  * 
  */
-// const originalUrl = "https://firebasestorage.googleapis.com/v0/b/threejs-be120.appspot.com";
-// const proxy = "http://localhost:8010/proxy";
+const originalUrl = "https://firebasestorage.googleapis.com/v0/b/threejs-be120.appspot.com";
+const proxy = "http://localhost:8010/proxy";
 
 const modelsUrl = "https://firebasestorage.googleapis.com/v0/b/threejs-be120.appspot.com/o/threejs-scene.json?alt=media&token=5681d972-4741-4a44-a069-4dcb74e41dd8";
 
@@ -30,9 +30,9 @@ type Model = {
     rotation: Vector3;
     scale: Vector3;
 };
-// const getProxUrl = (o_url: string) => {
-//     return o_url.replace(originalUrl, proxy);
-// }
+const getProxUrl = (o_url: string) => {
+    return o_url.replace(originalUrl, proxy);
+}
 const addTextSpriteTOModel = (model: three.Object3D, text: string) => {
     const textSprite = makeTextSprite(text, { width: 400, height: 200 }, {
         fontsize: 55,
@@ -70,13 +70,13 @@ const getModels = async function (modelsUrl: string) {
         modelInfo: Model,
         gltf: GLTF
     }[] = [];
-    const modelsResp = await fetch(modelsUrl, {
+    const modelsResp = await fetch(getProxUrl(modelsUrl), {
         mode: "cors",
     });
     const models: { models: Model[] } = await modelsResp.json();
     for (const model of models['models']) {
 
-        const gltf = await loader.loadAsync(model.url);
+        const gltf = await loader.loadAsync(getProxUrl(model.url));
         gltfModels.push({ modelInfo: model, gltf });
 
 
