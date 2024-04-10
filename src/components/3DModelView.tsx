@@ -6,15 +6,7 @@ import { makeTextSprite } from '../lib/uiText';
 import { suspend } from 'suspend-react';
 import { useScenePlayer } from '../context/scenePlayer';
 
-/**
- * 
- * Because of the CORS, I can't access to data on the firebase server from local fetch, so I used local proxy.
- * 
- */
-const originalUrl = "https://firebasestorage.googleapis.com/v0/b/threejs-be120.appspot.com";
-const proxy = "http://localhost:8010/proxy";
-
-const modelsUrl = "https://firebasestorage.googleapis.com/v0/b/threejs-be120.appspot.com/o/threejs-scene.json?alt=media&token=5681d972-4741-4a44-a069-4dcb74e41dd8";
+const modelsUrl = "https://abxr-backend.s3.amazonaws.com/media/threejs_tests/threejs-scene.json";
 
 
 type Vector3 = {
@@ -30,12 +22,11 @@ type Model = {
     rotation: Vector3;
     scale: Vector3;
 };
-const getProxUrl = (o_url: string) => {
-    return o_url.replace(originalUrl, proxy);
-}
-const addTextSpriteTOModel = (model: three.Object3D, text: string) => {
-    const textSprite = makeTextSprite(text, { width: 400, height: 200 }, {
-        fontsize: 55,
+
+
+const getTextUI = (text: string) => {
+    const textSprite = makeTextSprite(text, { width: 550, height: 225 }, {
+        fontSize: 55,
         backgroundColor: {
             r: 0,
             g: 0,
@@ -49,19 +40,7 @@ const addTextSpriteTOModel = (model: three.Object3D, text: string) => {
             a: 1
         }
     });
-    textSprite.position.set(0, 25, 15);
-    model.add(textSprite);
-
-    textSprite.visible = true;
     return textSprite;
-}
-
-const toggleUIText = (textSprite: three.Sprite) => {
-    if (textSprite.visible) {
-        textSprite.visible = false;
-    } else {
-        textSprite.visible = true;
-    }
 }
 
 const getModels = async function (modelsUrl: string) {
@@ -70,13 +49,13 @@ const getModels = async function (modelsUrl: string) {
         modelInfo: Model,
         gltf: GLTF
     }[] = [];
-    const modelsResp = await fetch(getProxUrl(modelsUrl), {
+    const modelsResp = await fetch(modelsUrl, {
         mode: "cors",
     });
     const models: { models: Model[] } = await modelsResp.json();
     for (const model of models['models']) {
 
-        const gltf = await loader.loadAsync(getProxUrl(model.url));
+        const gltf = await loader.loadAsync(model.url);
         gltfModels.push({ modelInfo: model, gltf });
 
 
@@ -93,9 +72,10 @@ function ModelViewer() {
     const [mixers, setAnimationMixers] = useState<three.AnimationMixer[]>([]);
     const pointer = useMemo(() => new three.Vector2(), []);
     const modelsGLtf = suspend(() => getModels(modelsUrl), []);
-    const raycaster = useMemo(() => new three.Raycaster(), []);
+    const rayCaster = useMemo(() => new three.Raycaster(), []);
     const [clipActions, setClipActions] = useState<three.AnimationAction[]>([]);
     const hasClicked = useRef(false);
+    const [models, setModels] = useState<three.Object3D[]>([]);
     const onPointerMove = function (event: MouseEvent) {
 
         pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -103,49 +83,48 @@ function ModelViewer() {
 
     };
     useEffect(() => {
-        window.addEventListener('click', (event) => {
+        window.addEventListener('pointerdown', (event) => {
             onPointerMove(event);
             hasClicked.current = true;
 
         });
-        let models: { gltf: GLTF, modelInfo: Model }[] = [];
-        const mixer_: three.AnimationMixer[] = [];
-        const actions_: three.AnimationAction[] = []
         const textSprites: three.Sprite[] = [];
         modelsGLtf.forEach(({ gltf, modelInfo }) => {
             const { position, scale, rotation, name } = modelInfo;
             const mixer = new three.AnimationMixer(gltf.scene);
             const clips = gltf.animations;
-            gltf.scene.position.set(position.x, position.y, position.z);
-            gltf.scene.scale.set(scale.x, scale.y, scale.z);
-            gltf.scene.rotation.set(toRad(rotation.x), toRad(rotation.y), toRad(rotation.z));
-
+            const object = new three.Object3D();
+            object.add(gltf.scene);
+            object.position.set(position.x, position.y, position.z);
+            object.scale.set(scale.x, scale.y, scale.z);
+            object.rotation.set(toRad(rotation.x), toRad(rotation.y), toRad(rotation.z));
+            object.updateMatrixWorld();
             clips.forEach((clip) => {
                 const action = mixer.clipAction(clip);
                 action.play();
-                actions_.push(action);
+                setClipActions((prevAction) => [...prevAction, action]);
 
 
             });
-            const textSprite = addTextSpriteTOModel(gltf.scene, name);
-            textSprites.push(textSprite);
-            gltf.scene.traverse((obj) => {
-                if (obj instanceof three.Mesh) {
-                    obj.userData = {
-                        ...gltf.scene.userData,
-                        toggleUIText: () => {
-                            toggleUIText(textSprite);
-                        }
-                    }
+
+            const textSprite = getTextUI(name);
+            textSprite.visible = false;
+
+            const boundingBox = new three.Box3().setFromObject(object);
+            textSprite.position.set(boundingBox.max.x + 2, 10 + boundingBox.max.y, 0);
+
+            object.userData = {
+                toggleUIText: () => {
+                    textSprite.visible = !textSprite.visible;
                 }
-            });
-            scene.add(gltf.scene);
-            mixer_.push(mixer);
+            }
+            textSprites.push(textSprite)
+            object.add(textSprite);
+            scene.add(object);
+            setAnimationMixers((prevMixers) => [...prevMixers, mixer]);
+            setModels((prevObjects) => [...prevObjects, object])
 
         });
-
-        setAnimationMixers(mixer_);
-        setClipActions(actions_);
 
         return () => {
             window.removeEventListener('pointerdown', onPointerMove);
@@ -153,10 +132,10 @@ function ModelViewer() {
                 s.geometry.dispose();
                 s.material.dispose();
                 s.material.map?.dispose();
-                s.parent?.remove(s);
+                s.parent?.remove();
             });
-            models.forEach(({ gltf }) => {
-                gltf.scene.traverse((obj) => {
+            models.forEach((m) => {
+                m.traverse((obj) => {
                     if (obj instanceof three.Mesh) {
                         obj.geometry.dispose();
                         if (Array.isArray(obj.material)) {
@@ -169,14 +148,16 @@ function ModelViewer() {
                             obj.material.map.dispose();
                         }
                     }
-                    gltf.scene.remove(obj);
+                    m.remove(obj);
 
                 });
-                scene.remove(gltf.scene);
+                scene.remove(m);
             });
+            setAnimationMixers([]);
+            setClipActions([]);
+            setModels([]);
         }
-    }, []);
-
+    }, [scene]);
     useFrame(() => {
 
 
@@ -193,19 +174,20 @@ function ModelViewer() {
             mixer.update(0.015);
         });
         if (hasClicked.current) {
-            raycaster.setFromCamera(pointer, camera);
 
-            const intersects = raycaster.intersectObjects(
-                modelsGLtf.map(({ gltf }) => gltf.scene)
-            )
-            for (const i of intersects) {
-                if ('toggleUIText' in i.object.userData) {
-                    i.object.userData.toggleUIText();
+            rayCaster.setFromCamera(pointer, camera);
+            const intersects = rayCaster.intersectObjects(models);
+            if (intersects.length > 0) {
+                intersects[0].object.traverseAncestors((o) => {
+                    if ('toggleUIText' in o.userData) {
 
-                }
+                        o.userData.toggleUIText.call(undefined);
+                    }
+                });
             }
             hasClicked.current = false;
         }
+
     });
     return null;
 }

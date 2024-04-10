@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as three from 'three';
 import { useFrame, useScene } from "../context/canvas";
 import { useScenePlayer } from "../context/scenePlayer";

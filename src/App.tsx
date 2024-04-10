@@ -6,7 +6,7 @@ import { Leva } from 'leva';
 import SceneLight from './components/sceneLight';
 import ModelViewer from './components/3DModelView';
 import FireSmoke from './components/fireSmoke';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useState } from 'react';
 import { defaultScenePlayerContext, ScenePlayerContext } from './context/scenePlayer';
 
 function Loading() {
@@ -67,6 +67,7 @@ function App() {
         <Player />
 
       </Suspense>
+      {/** disable leva control*/}
       <Leva hidden={false} collapsed={false} />
     </div>
   );

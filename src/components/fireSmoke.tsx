@@ -3,7 +3,6 @@ import { useFrame, useScene } from '../context/canvas';
 import { useEffect, useState } from 'react';
 import { noise } from '../shader/nose';
 import FBOVelocity from './fbovelocity';
-import { useScenePlayer } from '../context/scenePlayer';
 const FireSmoke = function () {
     const { scene } = useScene();
     const [velocityTexture, setVelocityTexture] = useState<three.DataTexture>();

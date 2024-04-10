@@ -4,6 +4,12 @@ import { setupScene } from "../lib/scene";
 import { SceneProps } from "../lib/types";
 import { PerspectiveCamera } from "three";
 import { VRButton } from 'three/examples/jsm/webxr/VRButton';
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
+import * as three from 'three';
+three.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
+three.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
+three.Mesh.prototype.raycast = acceleratedRaycast;
+
 interface CanvasProps {
     fallBack?: React.ReactNode;
     children?: React.ReactNode;
@@ -70,10 +76,11 @@ const Canvas = React.forwardRef<HTMLCanvasElement, CanvasProps>(function Canvas(
         function animate() {
 
             newScene.renderer.setAnimationLoop(() => {
+
+                newScene.renderer.render(newScene.scene, newScene.camera);
                 defaultAnimateContextValue.callBacks.forEach((callBack) => {
                     callBack.call(undefined, 0.1)
                 });
-                newScene.renderer.render(newScene.scene, newScene.camera);
 
             })
 
